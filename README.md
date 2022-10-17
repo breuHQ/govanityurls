@@ -9,24 +9,24 @@ It also can run on Google App Engine.
 Install and run the binary:
 
 ```
-$ go get -u github.com/GoogleCloudPlatform/govanityurls
-$ # update vanity.yaml
-$ govanityurls
-$ # open http://localhost:8080
+go get -u github.com/GoogleCloudPlatform/govanityurls
+# update vanity.yaml
+govanityurls
+# open http://localhost:8080
 ```
-
 
 ### Google App Engine
 
 Install [gcloud](https://cloud.google.com/sdk/downloads) and install Go App Engine component:
 
 ```
-$ gcloud components install app-engine-go
+gcloud components install app-engine-go
 ```
 
 Setup a [custom domain](https://cloud.google.com/appengine/docs/standard/python/using-custom-domains-and-ssl) for your app.
 
 Get the application:
+
 ```
 git clone https://github.com/GoogleCloudPlatform/govanityurls
 cd govanityurls
@@ -46,13 +46,13 @@ You can add as many rules as you wish.
 Deploy the app:
 
 ```
-$ gcloud app deploy
+gcloud app deploy
 ```
 
 That's it! You can use `go get` to get the package from your custom domain.
 
 ```
-$ go get customdomain.com/portmidi
+go get customdomain.com/portmidi
 ```
 
 ### Running in other environments

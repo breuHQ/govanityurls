@@ -15,7 +15,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +22,7 @@ import (
 
 func main() {
 	var configPath string
+
 	switch len(os.Args) {
 	case 1:
 		configPath = "vanity.yaml"
@@ -31,20 +31,24 @@ func main() {
 	default:
 		log.Fatal("usage: govanityurls [CONFIG]")
 	}
-	vanity, err := ioutil.ReadFile(configPath)
+
+	vanity, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	h, err := newHandler(vanity)
 	if err != nil {
 		log.Fatal(err)
 	}
-	http.Handle("/", h)
 
+	http.Handle("/", h)
 	port := os.Getenv("PORT")
+
 	if port == "" {
 		port = "8080"
 	}
+
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}

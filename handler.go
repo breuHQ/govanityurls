@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -49,18 +50,23 @@ func newHandler(config []byte) (*handler, error) {
 			VCS     string `yaml:"vcs,omitempty"`
 		} `yaml:"paths,omitempty"`
 	}
+
 	if err := yaml.Unmarshal(config, &parsed); err != nil {
 		return nil, err
 	}
+
 	h := &handler{host: parsed.Host}
 	cacheAge := int64(86400) // 24 hours (in seconds)
+
 	if parsed.CacheAge != nil {
 		cacheAge = *parsed.CacheAge
 		if cacheAge < 0 {
 			return nil, errors.New("cache_max_age is negative")
 		}
 	}
+
 	h.cacheControl = fmt.Sprintf("public, max-age=%d", cacheAge)
+
 	for path, e := range parsed.Paths {
 		pc := pathConfig{
 			path:    strings.TrimSuffix(path, "/"),
@@ -68,6 +74,7 @@ func newHandler(config []byte) (*handler, error) {
 			display: e.Display,
 			vcs:     e.VCS,
 		}
+
 		switch {
 		case e.Display != "":
 			// Already filled in.
@@ -76,6 +83,7 @@ func newHandler(config []byte) (*handler, error) {
 		case strings.HasPrefix(e.Repo, "https://bitbucket.org"):
 			pc.display = fmt.Sprintf("%v %v/src/default{/dir} %v/src/default{/dir}/{file}#{file}-{line}", e.Repo, e.Repo, e.Repo)
 		}
+
 		switch {
 		case e.VCS != "":
 			// Already filled in.
@@ -87,6 +95,7 @@ func newHandler(config []byte) (*handler, error) {
 		default:
 			return nil, fmt.Errorf("configuration for %v: cannot infer VCS from %s", path, e.Repo)
 		}
+
 		h.paths = append(h.paths, pc)
 	}
 	sort.Sort(h.paths)
@@ -96,16 +105,19 @@ func newHandler(config []byte) (*handler, error) {
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	current := r.URL.Path
 	pc, subpath := h.paths.find(current)
+
 	if pc == nil && current == "/" {
 		h.serveIndex(w, r)
 		return
 	}
+
 	if pc == nil {
 		http.NotFound(w, r)
 		return
 	}
 
 	w.Header().Set("Cache-Control", h.cacheControl)
+
 	if err := vanityTmpl.Execute(w, struct {
 		Import  string
 		Subpath string
@@ -126,9 +138,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *handler) serveIndex(w http.ResponseWriter, r *http.Request) {
 	host := h.Host(r)
 	handlers := make([]string, len(h.paths))
+
 	for i, h := range h.paths {
+		log.Printf("host: %v, path: %v", host, h.path)
 		handlers[i] = host + h.path
 	}
+
 	if err := indexTmpl.Execute(w, struct {
 		Host     string
 		Handlers []string
@@ -190,9 +205,11 @@ func (pset pathConfigSet) find(path string) (pc *pathConfig, subpath string) {
 	i := sort.Search(len(pset), func(i int) bool {
 		return pset[i].path >= path
 	})
+
 	if i < len(pset) && pset[i].path == path {
 		return &pset[i], ""
 	}
+
 	if i > 0 && strings.HasPrefix(path, pset[i-1].path+"/") {
 		return &pset[i-1], path[len(pset[i-1].path)+1:]
 	}
@@ -209,17 +226,21 @@ func (pset pathConfigSet) find(path string) (pc *pathConfig, subpath string) {
 	max := i
 	for i := 0; i < max; i++ {
 		ps := pset[i]
+
 		if len(ps.path) >= len(path) {
 			// We previously didn't find the path by search, so any
 			// route with equal or greater length is NOT a match.
 			continue
 		}
+
 		sSubpath := strings.TrimPrefix(path, ps.path)
+
 		if len(sSubpath) < lenShortestSubpath {
 			subpath = sSubpath
 			lenShortestSubpath = len(sSubpath)
 			bestMatchConfig = &pset[i]
 		}
 	}
+
 	return bestMatchConfig, subpath
 }

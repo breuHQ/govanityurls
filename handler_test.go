@@ -16,7 +16,7 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -98,32 +98,39 @@ func TestHandler(t *testing.T) {
 			goSource: "example.com/portmidi https://github.com/rakyll/portmidi _ _",
 		},
 	}
+
 	for _, test := range tests {
 		h, err := newHandler([]byte(test.config))
 		if err != nil {
 			t.Errorf("%s: newHandler: %v", test.name, err)
 			continue
 		}
+
 		s := httptest.NewServer(h)
 		resp, err := http.Get(s.URL + test.path)
+
 		if err != nil {
 			s.Close()
 			t.Errorf("%s: http.Get: %v", test.name, err)
 			continue
 		}
-		data, err := ioutil.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		s.Close()
+
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("%s: status code = %s; want 200 OK", test.name, resp.Status)
 		}
+
 		if err != nil {
-			t.Errorf("%s: ioutil.ReadAll: %v", test.name, err)
+			t.Errorf("%s: io.ReadAll: %v", test.name, err)
 			continue
 		}
+
 		if got := findMeta(data, "go-import"); got != test.goImport {
 			t.Errorf("%s: meta go-import = %q; want %q", test.name, got, test.goImport)
 		}
+
 		if got := findMeta(data, "go-source"); got != test.goSource {
 			t.Errorf("%s: meta go-source = %q; want %q", test.name, got, test.goSource)
 		}
@@ -237,10 +244,10 @@ func TestPathConfigSetFind(t *testing.T) {
 			want:  "/y",
 		},
 		{
-			paths: []string{"/example/helloworld", "/", "/y", "/foo"},
-			query: "/x/y/",
-			want:  "/",
-			subpath:  "x/y/",
+			paths:   []string{"/example/helloworld", "/", "/y", "/foo"},
+			query:   "/x/y/",
+			want:    "/",
+			subpath: "x/y/",
 		},
 		{
 			paths: []string{"/example/helloworld", "/y", "/foo"},
