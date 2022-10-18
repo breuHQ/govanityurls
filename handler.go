@@ -39,6 +39,10 @@ type pathConfig struct {
 	vcs     string
 }
 
+func defaultHost(r *http.Request) string {
+	return r.Host
+}
+
 func newHandler(config []byte) (*handler, error) {
 	var parsed struct {
 		Host     string `yaml:"host,omitempty"`
