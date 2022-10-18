@@ -49,11 +49,11 @@ func main() {
 		port = "8080"
 	}
 
-	if err := http.ListenAndServe(":"+port, LoggingHandler(os.Stdout, http.DefaultServeMux)); err != nil {
+	if err := http.ListenAndServe("0.0.0.0:"+port, LoggingHandler(os.Stdout, http.DefaultServeMux)); err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("Listening on port %s", port)
+	log.Printf("Listening on 0.0.0.0:%s", port)
 }
 
 func defaultHost(r *http.Request) string {
