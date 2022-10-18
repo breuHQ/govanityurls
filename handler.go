@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -103,6 +102,7 @@ func newHandler(config []byte) (*handler, error) {
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
 	current := r.URL.Path
 	pc, subpath := h.paths.find(current)
 
@@ -140,7 +140,6 @@ func (h *handler) serveIndex(w http.ResponseWriter, r *http.Request) {
 	handlers := make([]string, len(h.paths))
 
 	for i, h := range h.paths {
-		log.Printf("host: %v, path: %v", host, h.path)
 		handlers[i] = host + h.path
 	}
 
