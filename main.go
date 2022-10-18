@@ -43,8 +43,9 @@ func main() {
 	}
 
 	http.Handle("/", h)
-	port := os.Getenv("PORT")
+	http.Handle("/healthz", http.HandlerFunc(healthz))
 
+	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
@@ -53,4 +54,9 @@ func main() {
 	if err := http.ListenAndServe("0.0.0.0:"+port, LoggingHandler(os.Stdout, http.DefaultServeMux)); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func healthz(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
 }
