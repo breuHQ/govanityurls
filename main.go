@@ -18,6 +18,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 func main() {
@@ -37,12 +38,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	vhandler, err := NewVanityHandler(vanity)
+	handler, err := NewVanityHandler(vanity)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	http.Handle("/", vhandler)
+	http.Handle("/", handler)
 	http.Handle("/healthz", http.HandlerFunc(healthz))
 
 	port := os.Getenv("PORT")
@@ -51,7 +52,15 @@ func main() {
 	}
 
 	log.Printf("Listening on 0.0.0.0:%s", port)
-	if err := http.ListenAndServe("0.0.0.0:"+port, LoggingHandler(os.Stdout, http.DefaultServeMux)); err != nil {
+
+	server := &http.Server{
+		Addr:              "0.0.0.0:" + port,
+		Handler:           LoggingHandler(os.Stdout, http.DefaultServeMux),
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

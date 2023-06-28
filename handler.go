@@ -16,13 +16,20 @@
 package main
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
+	"text/template"
 
 	"gopkg.in/yaml.v2"
+)
+
+var (
+	//go:embed templates
+	templates embed.FS
 )
 
 type (
@@ -78,6 +85,7 @@ func (h *VanityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", h.CacheControl)
 
+	vanityTmpl := template.Must(template.ParseFS(templates, "templates/vanity.html.tmpl"))
 	if err := vanityTmpl.Execute(w, VanityTemplate{
 		Import:  h.Host(r) + pc.path,
 		SubPath: subpath,
@@ -97,6 +105,7 @@ func (h *VanityHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 		handlers[i] = host + h.path
 	}
 
+	indexTmpl := template.Must(template.ParseFS(templates, "templates/index.html.tmpl"))
 	if err := indexTmpl.Execute(w, struct {
 		Host     string
 		Handlers []string
@@ -113,6 +122,7 @@ func (h *VanityHandler) Host(r *http.Request) string {
 	if host == "" {
 		host = DefaultHost(r)
 	}
+
 	return host
 }
 
@@ -148,6 +158,7 @@ func (pset PathConfigSet) Find(path string) (pc *PathConfig, subpath string) {
 	//  * query "/abc/foo" returns "/abc/" with a subpath of "foo"
 	//  * query "/x" returns "/" with a subpath of "x"
 	lenShortestSubpath := len(path)
+
 	var bestMatchConfig *PathConfig
 
 	// After binary search with the >= lexicographic comparison,

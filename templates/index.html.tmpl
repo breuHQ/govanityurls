@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html>
+<h1>{{.Host}}</h1>
+<ul>
+{{range .Handlers}}
+  <li><a href="https://{{.}}">{{.}}</a></li>
+{{end}}
+</ul>
+</html>
