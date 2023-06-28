@@ -37,12 +37,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	h, err := newHandler(vanity)
+	vhandler, err := NewVanityHandler(vanity)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	http.Handle("/", h)
+	http.Handle("/", vhandler)
 	http.Handle("/healthz", http.HandlerFunc(healthz))
 
 	port := os.Getenv("PORT")

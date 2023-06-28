@@ -100,7 +100,7 @@ func TestHandler(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		h, err := newHandler([]byte(test.config))
+		h, err := NewVanityHandler([]byte(test.config))
 		if err != nil {
 			t.Errorf("%s: newHandler: %v", test.name, err)
 			continue
@@ -152,7 +152,7 @@ func TestBadConfigs(t *testing.T) {
 			"    repo: https://github.com/rakyll/portmidi\n",
 	}
 	for _, config := range badConfigs {
-		_, err := newHandler([]byte(config))
+		_, err := NewVanityHandler([]byte(config))
 		if err == nil {
 			t.Errorf("expected config to produce an error, but did not:\n%s", config)
 		}
@@ -262,12 +262,12 @@ func TestPathConfigSetFind(t *testing.T) {
 		return s
 	}
 	for _, test := range tests {
-		pset := make(pathConfigSet, len(test.paths))
+		pset := make(PathConfigSet, len(test.paths))
 		for i := range test.paths {
 			pset[i].path = test.paths[i]
 		}
 		sort.Sort(pset)
-		pc, subpath := pset.find(test.query)
+		pc, subpath := pset.Find(test.query)
 		var got string
 		if pc != nil {
 			got = pc.path
@@ -301,7 +301,7 @@ func TestCacheHeader(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		h, err := newHandler([]byte("paths:\n  /portmidi:\n    repo: https://github.com/rakyll/portmidi\n" +
+		h, err := NewVanityHandler([]byte("paths:\n  /portmidi:\n    repo: https://github.com/rakyll/portmidi\n" +
 			test.config))
 		if err != nil {
 			t.Errorf("%s: newHandler: %v", test.name, err)

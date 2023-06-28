@@ -18,7 +18,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"sort"
 	"strings"
@@ -26,39 +25,163 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type handler struct {
-	host         string
-	cacheControl string
-	paths        pathConfigSet
-}
-
-type pathConfig struct {
-	path    string
-	repo    string
-	display string
-	vcs     string
-}
-
-func defaultHost(r *http.Request) string {
-	return r.Host
-}
-
-func newHandler(config []byte) (*handler, error) {
-	var parsed struct {
-		Host     string `yaml:"host,omitempty"`
-		CacheAge *int64 `yaml:"cache_max_age,omitempty"`
-		Paths    map[string]struct {
-			Repo    string `yaml:"repo,omitempty"`
-			Display string `yaml:"display,omitempty"`
-			VCS     string `yaml:"vcs,omitempty"`
-		} `yaml:"paths,omitempty"`
+type (
+	VanityHandler struct {
+		host         string
+		CacheControl string
+		paths        PathConfigSet
 	}
+
+	PathConfigSet []PathConfig
+
+	PathConfig struct {
+		path    string
+		repo    string
+		display string
+		vcs     string
+	}
+
+	VanityTemplate struct {
+		Import  string
+		SubPath string
+		Repo    string
+		Display string
+		VCS     string
+	}
+
+	VanityConfig struct {
+		Host     string                `yaml:"host,omitempty"`
+		CacheAge *int64                `yaml:"cache_max_age,omitempty"`
+		Paths    map[string]VanityPath `yaml:"paths,omitempty"`
+	}
+
+	VanityPath struct {
+		Repo    string `yaml:"repo,omitempty"`
+		Display string `yaml:"display,omitempty"`
+		VCS     string `yaml:"vcs,omitempty"`
+	}
+)
+
+func (h *VanityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	current := r.URL.Path
+	pc, subpath := h.paths.Find(current)
+
+	if pc == nil && current == "/" {
+		h.ServeIndex(w, r)
+		return
+	}
+
+	if pc == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Cache-Control", h.CacheControl)
+
+	if err := vanityTmpl.Execute(w, VanityTemplate{
+		Import:  h.Host(r) + pc.path,
+		SubPath: subpath,
+		Repo:    pc.repo,
+		Display: pc.display,
+		VCS:     pc.vcs,
+	}); err != nil {
+		http.Error(w, "cannot render the page", http.StatusInternalServerError)
+	}
+}
+
+func (h *VanityHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
+	host := h.Host(r)
+	handlers := make([]string, len(h.paths))
+
+	for i, h := range h.paths {
+		handlers[i] = host + h.path
+	}
+
+	if err := indexTmpl.Execute(w, struct {
+		Host     string
+		Handlers []string
+	}{
+		Host:     host,
+		Handlers: handlers,
+	}); err != nil {
+		http.Error(w, "cannot render the page", http.StatusInternalServerError)
+	}
+}
+
+func (h *VanityHandler) Host(r *http.Request) string {
+	host := h.host
+	if host == "" {
+		host = DefaultHost(r)
+	}
+	return host
+}
+
+func (pset PathConfigSet) Len() int {
+	return len(pset)
+}
+
+func (pset PathConfigSet) Less(i, j int) bool {
+	return pset[i].path < pset[j].path
+}
+
+func (pset PathConfigSet) Swap(i, j int) {
+	pset[i], pset[j] = pset[j], pset[i]
+}
+
+func (pset PathConfigSet) Find(path string) (pc *PathConfig, subpath string) {
+	// Fast path with binary search to retrieve exact matches
+	// e.g. given pset ["/", "/abc", "/xyz"], path "/def" won't match.
+	i := sort.Search(len(pset), func(i int) bool {
+		return pset[i].path >= path
+	})
+
+	if i < len(pset) && pset[i].path == path {
+		return &pset[i], ""
+	}
+
+	if i > 0 && strings.HasPrefix(path, pset[i-1].path+"/") {
+		return &pset[i-1], path[len(pset[i-1].path)+1:]
+	}
+
+	// Slow path, now looking for the longest prefix/shortest subpath i.e.
+	// e.g. given pset ["/", "/abc/", "/abc/def/", "/xyz"/]
+	//  * query "/abc/foo" returns "/abc/" with a subpath of "foo"
+	//  * query "/x" returns "/" with a subpath of "x"
+	lenShortestSubpath := len(path)
+	var bestMatchConfig *PathConfig
+
+	// After binary search with the >= lexicographic comparison,
+	// nothing greater than i will be a prefix of path.
+	max := i
+	for i := 0; i < max; i++ {
+		ps := pset[i]
+
+		if len(ps.path) >= len(path) {
+			// We previously didn't find the path by search, so any
+			// route with equal or greater length is NOT a match.
+			continue
+		}
+
+		sSubpath := strings.TrimPrefix(path, ps.path)
+
+		if len(sSubpath) < lenShortestSubpath {
+			subpath = sSubpath
+			lenShortestSubpath = len(sSubpath)
+			bestMatchConfig = &pset[i]
+		}
+	}
+
+	return bestMatchConfig, subpath
+}
+
+func NewVanityHandler(config []byte) (*VanityHandler, error) {
+	var parsed VanityConfig
 
 	if err := yaml.Unmarshal(config, &parsed); err != nil {
 		return nil, err
 	}
 
-	h := &handler{host: parsed.Host}
+	handler := &VanityHandler{host: parsed.Host}
 	cacheAge := int64(86400) // 24 hours (in seconds)
 
 	if parsed.CacheAge != nil {
@@ -68,10 +191,10 @@ func newHandler(config []byte) (*handler, error) {
 		}
 	}
 
-	h.cacheControl = fmt.Sprintf("public, max-age=%d", cacheAge)
+	handler.CacheControl = fmt.Sprintf("public, max-age=%d", cacheAge)
 
 	for path, e := range parsed.Paths {
-		pc := pathConfig{
+		pc := PathConfig{
 			path:    strings.TrimSuffix(path, "/"),
 			repo:    e.Repo,
 			display: e.Display,
@@ -99,151 +222,14 @@ func newHandler(config []byte) (*handler, error) {
 			return nil, fmt.Errorf("configuration for %v: cannot infer VCS from %s", path, e.Repo)
 		}
 
-		h.paths = append(h.paths, pc)
+		handler.paths = append(handler.paths, pc)
 	}
-	sort.Sort(h.paths)
-	return h, nil
+
+	sort.Sort(handler.paths)
+
+	return handler, nil
 }
 
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
-	current := r.URL.Path
-	pc, subpath := h.paths.find(current)
-
-	if pc == nil && current == "/" {
-		h.serveIndex(w, r)
-		return
-	}
-
-	if pc == nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	w.Header().Set("Cache-Control", h.cacheControl)
-
-	if err := vanityTmpl.Execute(w, struct {
-		Import  string
-		Subpath string
-		Repo    string
-		Display string
-		VCS     string
-	}{
-		Import:  h.Host(r) + pc.path,
-		Subpath: subpath,
-		Repo:    pc.repo,
-		Display: pc.display,
-		VCS:     pc.vcs,
-	}); err != nil {
-		http.Error(w, "cannot render the page", http.StatusInternalServerError)
-	}
-}
-
-func (h *handler) serveIndex(w http.ResponseWriter, r *http.Request) {
-	host := h.Host(r)
-	handlers := make([]string, len(h.paths))
-
-	for i, h := range h.paths {
-		handlers[i] = host + h.path
-	}
-
-	if err := indexTmpl.Execute(w, struct {
-		Host     string
-		Handlers []string
-	}{
-		Host:     host,
-		Handlers: handlers,
-	}); err != nil {
-		http.Error(w, "cannot render the page", http.StatusInternalServerError)
-	}
-}
-
-func (h *handler) Host(r *http.Request) string {
-	host := h.host
-	if host == "" {
-		host = defaultHost(r)
-	}
-	return host
-}
-
-var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
-<html>
-<h1>{{.Host}}</h1>
-<ul>
-{{range .Handlers}}<li><a href="https://{{.}}">{{.}}</a></li>{{end}}
-</ul>
-</html>
-`))
-
-var vanityTmpl = template.Must(template.New("vanity").Parse(`<!DOCTYPE html>
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-<meta name="go-import" content="{{.Import}} {{.VCS}} {{.Repo}}">
-<meta name="go-source" content="{{.Import}} {{.Display}}">
-<meta http-equiv="refresh" content="0; url={{.Repo}}">
-</head>
-<body>
-Nothing to see here; <a href="{{.Repo}}">see at {{.Repo}}</a>.
-</body>
-</html>`))
-
-type pathConfigSet []pathConfig
-
-func (pset pathConfigSet) Len() int {
-	return len(pset)
-}
-
-func (pset pathConfigSet) Less(i, j int) bool {
-	return pset[i].path < pset[j].path
-}
-
-func (pset pathConfigSet) Swap(i, j int) {
-	pset[i], pset[j] = pset[j], pset[i]
-}
-
-func (pset pathConfigSet) find(path string) (pc *pathConfig, subpath string) {
-	// Fast path with binary search to retrieve exact matches
-	// e.g. given pset ["/", "/abc", "/xyz"], path "/def" won't match.
-	i := sort.Search(len(pset), func(i int) bool {
-		return pset[i].path >= path
-	})
-
-	if i < len(pset) && pset[i].path == path {
-		return &pset[i], ""
-	}
-
-	if i > 0 && strings.HasPrefix(path, pset[i-1].path+"/") {
-		return &pset[i-1], path[len(pset[i-1].path)+1:]
-	}
-
-	// Slow path, now looking for the longest prefix/shortest subpath i.e.
-	// e.g. given pset ["/", "/abc/", "/abc/def/", "/xyz"/]
-	//  * query "/abc/foo" returns "/abc/" with a subpath of "foo"
-	//  * query "/x" returns "/" with a subpath of "x"
-	lenShortestSubpath := len(path)
-	var bestMatchConfig *pathConfig
-
-	// After binary search with the >= lexicographic comparison,
-	// nothing greater than i will be a prefix of path.
-	max := i
-	for i := 0; i < max; i++ {
-		ps := pset[i]
-
-		if len(ps.path) >= len(path) {
-			// We previously didn't find the path by search, so any
-			// route with equal or greater length is NOT a match.
-			continue
-		}
-
-		sSubpath := strings.TrimPrefix(path, ps.path)
-
-		if len(sSubpath) < lenShortestSubpath {
-			subpath = sSubpath
-			lenShortestSubpath = len(sSubpath)
-			bestMatchConfig = &pset[i]
-		}
-	}
-
-	return bestMatchConfig, subpath
+func DefaultHost(r *http.Request) string {
+	return r.Host
 }
