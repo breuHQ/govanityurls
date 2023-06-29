@@ -4,3 +4,6 @@ paths:
   /ctrlplane:
     repo: https://github.com/breuHQ/ctrlplane
     vcs: git
+  /nozl:
+    repo: https://github.com/breuHQ/nozl
+    vcs: git

@@ -37,6 +37,6 @@ paths:
 
 | key     | required | description                                                                                                                                                                     |
 | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| repo    | yes      | oot URL of the repository as it would appear in [go-import meta tag](https://golang.org/cmd/go/#hdr-Remote_import_paths).                                                       |
+| repo    | yes      | Root URL of the repository as it would appear in [go-import meta tag](https://golang.org/cmd/go/#hdr-Remote_import_paths).                                                       |
 | vcs     | optional | can be `git`, `svn`, `bzr` & `hg`. if not provided, defaults to git.                                                                                                            |
 | display | optional | The last three fields of the [go-source meta tag](https://github.com/golang/gddo/wiki/Source-Code-Links). If omitted, it is inferred from the code hosting service if possible. |
