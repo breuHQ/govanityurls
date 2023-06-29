@@ -264,13 +264,13 @@ func TestPathConfigSetFind(t *testing.T) {
 	for _, test := range tests {
 		pset := make(PathConfigSet, len(test.paths))
 		for i := range test.paths {
-			pset[i].path = test.paths[i]
+			pset[i].Path = test.paths[i]
 		}
 		sort.Sort(pset)
 		pc, subpath := pset.Find(test.query)
 		var got string
 		if pc != nil {
-			got = pc.path
+			got = pc.Path
 		}
 		if got != test.want || subpath != test.subpath {
 			t.Errorf("pathConfigSet(%v).find(%q) = %v, %v; want %v, %v",

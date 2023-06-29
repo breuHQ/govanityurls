@@ -35,17 +35,17 @@ var (
 type (
 	VanityHandler struct {
 		host         string
-		CacheControl string
 		paths        PathConfigSet
+		CacheControl string
 	}
 
 	PathConfigSet []PathConfig
 
 	PathConfig struct {
-		path    string
-		repo    string
-		display string
-		vcs     string
+		Path    string
+		Repo    string
+		Display string
+		VCS     string
 	}
 
 	VanityTemplate struct {
@@ -87,11 +87,11 @@ func (h *VanityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	vanityTmpl := template.Must(template.ParseFS(templates, "templates/vanity.html.tmpl"))
 	if err := vanityTmpl.Execute(w, VanityTemplate{
-		Import:  h.Host(r) + pc.path,
+		Import:  h.Host(r) + pc.Path,
 		SubPath: subpath,
-		Repo:    pc.repo,
-		Display: pc.display,
-		VCS:     pc.vcs,
+		Repo:    pc.Repo,
+		Display: pc.Display,
+		VCS:     pc.VCS,
 	}); err != nil {
 		http.Error(w, "cannot render the page", http.StatusInternalServerError)
 	}
@@ -102,7 +102,7 @@ func (h *VanityHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 	handlers := make([]string, len(h.paths))
 
 	for i, h := range h.paths {
-		handlers[i] = host + h.path
+		handlers[i] = host + h.Path
 	}
 
 	indexTmpl := template.Must(template.ParseFS(templates, "templates/index.html.tmpl"))
@@ -131,7 +131,7 @@ func (pset PathConfigSet) Len() int {
 }
 
 func (pset PathConfigSet) Less(i, j int) bool {
-	return pset[i].path < pset[j].path
+	return pset[i].Path < pset[j].Path
 }
 
 func (pset PathConfigSet) Swap(i, j int) {
@@ -142,15 +142,15 @@ func (pset PathConfigSet) Find(path string) (pc *PathConfig, subpath string) {
 	// Fast path with binary search to retrieve exact matches
 	// e.g. given pset ["/", "/abc", "/xyz"], path "/def" won't match.
 	i := sort.Search(len(pset), func(i int) bool {
-		return pset[i].path >= path
+		return pset[i].Path >= path
 	})
 
-	if i < len(pset) && pset[i].path == path {
+	if i < len(pset) && pset[i].Path == path {
 		return &pset[i], ""
 	}
 
-	if i > 0 && strings.HasPrefix(path, pset[i-1].path+"/") {
-		return &pset[i-1], path[len(pset[i-1].path)+1:]
+	if i > 0 && strings.HasPrefix(path, pset[i-1].Path+"/") {
+		return &pset[i-1], path[len(pset[i-1].Path)+1:]
 	}
 
 	// Slow path, now looking for the longest prefix/shortest subpath i.e.
@@ -167,13 +167,13 @@ func (pset PathConfigSet) Find(path string) (pc *PathConfig, subpath string) {
 	for i := 0; i < max; i++ {
 		ps := pset[i]
 
-		if len(ps.path) >= len(path) {
+		if len(ps.Path) >= len(path) {
 			// We previously didn't find the path by search, so any
 			// route with equal or greater length is NOT a match.
 			continue
 		}
 
-		sSubpath := strings.TrimPrefix(path, ps.path)
+		sSubpath := strings.TrimPrefix(path, ps.Path)
 
 		if len(sSubpath) < lenShortestSubpath {
 			subpath = sSubpath
@@ -206,19 +206,19 @@ func NewVanityHandler(config []byte) (*VanityHandler, error) {
 
 	for path, e := range parsed.Paths {
 		pc := PathConfig{
-			path:    strings.TrimSuffix(path, "/"),
-			repo:    e.Repo,
-			display: e.Display,
-			vcs:     e.VCS,
+			Path:    strings.TrimSuffix(path, "/"),
+			Repo:    e.Repo,
+			Display: e.Display,
+			VCS:     e.VCS,
 		}
 
 		switch {
 		case e.Display != "":
 			// Already filled in.
 		case strings.HasPrefix(e.Repo, "https://github.com/"):
-			pc.display = fmt.Sprintf("%v %v/tree/master{/dir} %v/blob/master{/dir}/{file}#L{line}", e.Repo, e.Repo, e.Repo)
+			pc.Display = fmt.Sprintf("%v %v/tree/master{/dir} %v/blob/master{/dir}/{file}#L{line}", e.Repo, e.Repo, e.Repo)
 		case strings.HasPrefix(e.Repo, "https://bitbucket.org"):
-			pc.display = fmt.Sprintf("%v %v/src/default{/dir} %v/src/default{/dir}/{file}#{file}-{line}", e.Repo, e.Repo, e.Repo)
+			pc.Display = fmt.Sprintf("%v %v/src/default{/dir} %v/src/default{/dir}/{file}#{file}-{line}", e.Repo, e.Repo, e.Repo)
 		}
 
 		switch {
@@ -228,7 +228,7 @@ func NewVanityHandler(config []byte) (*VanityHandler, error) {
 				return nil, fmt.Errorf("configuration for %v: unknown VCS %s", path, e.VCS)
 			}
 		case strings.HasPrefix(e.Repo, "https://github.com/"):
-			pc.vcs = "git"
+			pc.VCS = "git"
 		default:
 			return nil, fmt.Errorf("configuration for %v: cannot infer VCS from %s", path, e.Repo)
 		}
