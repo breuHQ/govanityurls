@@ -34,9 +34,9 @@ var (
 
 type (
 	VanityHandler struct {
-		host         string
-		paths        PathConfigSet
-		CacheControl string
+		host      string
+		paths     PathConfigSet
+		cachectrl string
 	}
 
 	PathConfigSet []PathConfig
@@ -71,10 +71,12 @@ type (
 
 func (h *VanityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	current := r.URL.Path
-	pc, subpath := h.paths.Find(current)
+	pc, subpath := h.paths.find(current)
+
+	w.Header().Set("Cache-Control", h.cachectrl)
 
 	if pc == nil && current == "/" {
-		h.ServeIndex(w, r)
+		h.index(w, r)
 		return
 	}
 
@@ -83,21 +85,10 @@ func (h *VanityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Cache-Control", h.CacheControl)
-
-	vanityTmpl := template.Must(template.ParseFS(templates, "templates/vanity.html.tmpl"))
-	if err := vanityTmpl.Execute(w, VanityTemplate{
-		Import:  h.Host(r) + pc.Path,
-		SubPath: subpath,
-		Repo:    pc.Repo,
-		Display: pc.Display,
-		VCS:     pc.VCS,
-	}); err != nil {
-		http.Error(w, "cannot render the page", http.StatusInternalServerError)
-	}
+	h.vanity(pc, subpath)(w, r)
 }
 
-func (h *VanityHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
+func (h *VanityHandler) index(w http.ResponseWriter, r *http.Request) {
 	host := h.Host(r)
 	handlers := make([]string, len(h.paths))
 
@@ -114,6 +105,21 @@ func (h *VanityHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 		Handlers: handlers,
 	}); err != nil {
 		http.Error(w, "cannot render the page", http.StatusInternalServerError)
+	}
+}
+
+func (h *VanityHandler) vanity(pc *PathConfig, subpath string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vanityTmpl := template.Must(template.ParseFS(templates, "templates/vanity.html.tmpl"))
+		if err := vanityTmpl.Execute(w, VanityTemplate{
+			Import:  h.Host(r) + pc.Path,
+			SubPath: subpath,
+			Repo:    pc.Repo,
+			Display: pc.Display,
+			VCS:     pc.VCS,
+		}); err != nil {
+			http.Error(w, "cannot render the page", http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -138,7 +144,7 @@ func (pset PathConfigSet) Swap(i, j int) {
 	pset[i], pset[j] = pset[j], pset[i]
 }
 
-func (pset PathConfigSet) Find(path string) (pc *PathConfig, subpath string) {
+func (pset PathConfigSet) find(path string) (pc *PathConfig, subpath string) {
 	// Fast path with binary search to retrieve exact matches
 	// e.g. given pset ["/", "/abc", "/xyz"], path "/def" won't match.
 	i := sort.Search(len(pset), func(i int) bool {
@@ -202,7 +208,7 @@ func NewVanityHandler(config []byte) (*VanityHandler, error) {
 		}
 	}
 
-	handler.CacheControl = fmt.Sprintf("public, max-age=%d", cacheAge)
+	handler.cachectrl = fmt.Sprintf("public, max-age=%d", cacheAge)
 
 	for path, e := range parsed.Paths {
 		pc := PathConfig{

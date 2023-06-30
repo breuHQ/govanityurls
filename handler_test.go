@@ -267,7 +267,7 @@ func TestPathConfigSetFind(t *testing.T) {
 			pset[i].Path = test.paths[i]
 		}
 		sort.Sort(pset)
-		pc, subpath := pset.Find(test.query)
+		pc, subpath := pset.find(test.query)
 		var got string
 		if pc != nil {
 			got = pc.Path
