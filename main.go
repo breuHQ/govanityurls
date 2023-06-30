@@ -49,9 +49,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	http.Handle("/", handler)
 	http.Handle("/favicon.ico", http.HandlerFunc(favico))
 	http.Handle("/healthz", http.HandlerFunc(healthz))
+	http.Handle("/", handler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
