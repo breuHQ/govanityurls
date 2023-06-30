@@ -39,12 +39,12 @@ func main() {
 		log.Fatal("usage: govanityurls [CONFIG]")
 	}
 
-	vanity, err := os.ReadFile(configPath)
+	config, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	handler, err := NewVanityHandler(vanity)
+	handler, err := NewVanityHandler(config)
 	if err != nil {
 		log.Fatal(err)
 	}

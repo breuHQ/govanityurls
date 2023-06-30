@@ -17,7 +17,6 @@ package main
 
 import (
 	"embed"
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -88,6 +87,7 @@ func (h *VanityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.vanity(pc, subpath)(w, r)
 }
 
+// index renders the index page.
 func (h *VanityHandler) index(w http.ResponseWriter, r *http.Request) {
 	host := h.Host(r)
 	handlers := make([]string, len(h.paths))
@@ -104,10 +104,11 @@ func (h *VanityHandler) index(w http.ResponseWriter, r *http.Request) {
 		Host:     host,
 		Handlers: handlers,
 	}); err != nil {
-		http.Error(w, "cannot render the page", http.StatusInternalServerError)
+		http.Error(w, ErrUnableToRender.Error(), http.StatusInternalServerError)
 	}
 }
 
+// vanity renders the vanity url.
 func (h *VanityHandler) vanity(pc *PathConfig, subpath string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vanityTmpl := template.Must(template.ParseFS(templates, "templates/vanity.html.tmpl"))
@@ -118,7 +119,7 @@ func (h *VanityHandler) vanity(pc *PathConfig, subpath string) func(http.Respons
 			Display: pc.Display,
 			VCS:     pc.VCS,
 		}); err != nil {
-			http.Error(w, "cannot render the page", http.StatusInternalServerError)
+			http.Error(w, ErrUnableToRender.Error(), http.StatusInternalServerError)
 		}
 	}
 }
@@ -195,7 +196,7 @@ func NewVanityHandler(config []byte) (*VanityHandler, error) {
 	var parsed VanityConfig
 
 	if err := yaml.Unmarshal(config, &parsed); err != nil {
-		return nil, err
+		return nil, ErrInvalidConfig
 	}
 
 	handler := &VanityHandler{host: parsed.Host}
@@ -204,7 +205,7 @@ func NewVanityHandler(config []byte) (*VanityHandler, error) {
 	if parsed.CacheAge != nil {
 		cacheAge = *parsed.CacheAge
 		if cacheAge < 0 {
-			return nil, errors.New("cache_max_age is negative")
+			return nil, ErrCacheMaxAgeNegative
 		}
 	}
 
@@ -231,12 +232,12 @@ func NewVanityHandler(config []byte) (*VanityHandler, error) {
 		case e.VCS != "":
 			// Already filled in.
 			if e.VCS != "bzr" && e.VCS != "git" && e.VCS != "hg" && e.VCS != "svn" {
-				return nil, fmt.Errorf("configuration for %v: unknown VCS %s", path, e.VCS)
+				return nil, NewInvalidVCSError(path, e.Repo)
 			}
 		case strings.HasPrefix(e.Repo, "https://github.com/"):
 			pc.VCS = "git"
 		default:
-			return nil, fmt.Errorf("configuration for %v: cannot infer VCS from %s", path, e.Repo)
+			return nil, NewInvalidVCSError(path, e.Repo)
 		}
 
 		handler.paths = append(handler.paths, pc)
