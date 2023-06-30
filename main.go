@@ -15,10 +15,16 @@
 package main
 
 import (
+	"embed"
 	"log"
 	"net/http"
 	"os"
 	"time"
+)
+
+var (
+	//go:embed static
+	static embed.FS
 )
 
 func main() {
@@ -44,6 +50,7 @@ func main() {
 	}
 
 	http.Handle("/", handler)
+	http.Handle("/favicon.ico", http.HandlerFunc(favico))
 	http.Handle("/healthz", http.HandlerFunc(healthz))
 
 	port := os.Getenv("PORT")
@@ -68,4 +75,14 @@ func main() {
 func healthz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
+}
+
+func favico(w http.ResponseWriter, r *http.Request) {
+	f, err := static.ReadFile("static/favicon.ico")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	}
+
+	w.Header().Set("Content-Type", "image/x-icon")
+	_, _ = w.Write(f)
 }
