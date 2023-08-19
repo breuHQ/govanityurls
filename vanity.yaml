@@ -7,3 +7,9 @@ paths:
   /nozl:
     repo: https://github.com/breuHQ/nozl
     vcs: git
+  /techops:
+    repo: https://github.com/breuHQ/techops
+    vcs: git
+  /slog-utils:
+    repo: https://github.com/breuHQ/slog-utils
+    vcs: git

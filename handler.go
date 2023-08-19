@@ -127,7 +127,7 @@ func (h *VanityHandler) vanity(pc *PathConfig, subpath string) func(http.Respons
 func (h *VanityHandler) Host(r *http.Request) string {
 	host := h.host
 	if host == "" {
-		host = DefaultHost(r)
+		host = r.Host
 	}
 
 	return host
@@ -246,8 +246,4 @@ func NewVanityHandler(config []byte) (*VanityHandler, error) {
 	sort.Sort(handler.paths)
 
 	return handler, nil
-}
-
-func DefaultHost(r *http.Request) string {
-	return r.Host
 }
