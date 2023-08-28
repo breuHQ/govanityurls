@@ -13,3 +13,5 @@ paths:
   /slog-utils:
     repo: https://github.com/breuHQ/slog-utils
     vcs: git
+  /temporal-tools:
+    repo: https://github.com/breuHQ/go-temporal-tools
