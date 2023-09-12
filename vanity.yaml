@@ -15,3 +15,6 @@ paths:
     vcs: git
   /temporal-tools:
     repo: https://github.com/breuHQ/go-temporal-tools
+  /ulid:
+    repo: https://github.com/breuHQ/ulid
+    vcs: git
