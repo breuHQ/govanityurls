@@ -1,8 +1,8 @@
 host: go.breu.io
 
 paths:
-  /ctrlplane:
-    repo: https://github.com/breuHQ/ctrlplane
+  /quantm:
+    repo: https://github.com/quantmHQ/quantm
     vcs: git
   /nozl:
     repo: https://github.com/breuHQ/nozl
