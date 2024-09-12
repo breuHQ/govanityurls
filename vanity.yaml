@@ -13,8 +13,8 @@ paths:
   /slog-utils:
     repo: https://github.com/breuHQ/slog-utils
     vcs: git
-  /temporal-tools:
-    repo: https://github.com/breuHQ/go-temporal-tools
+  /durex:
+    repo: https://github.com/breuHQ/durex
   /ulid:
     repo: https://github.com/breuHQ/ulid
     vcs: git
