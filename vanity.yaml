@@ -18,6 +18,6 @@ paths:
   /ulid:
     repo: https://github.com/breuHQ/ulid
     vcs: git
-  /double-redux:
-    repo: https://gitlab.com/doubleus/redux.git
+  /graceful:
+    repo: https://github.com/breuHQ/graceful
     vcs: git
