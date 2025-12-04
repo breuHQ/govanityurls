@@ -21,3 +21,6 @@ paths:
   /graceful:
     repo: https://github.com/breuHQ/graceful
     vcs: git
+  /batchr:
+    repo: https://github.com/breuHQ/go-batch
+    vcs: git
